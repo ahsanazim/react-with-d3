@@ -11,12 +11,17 @@ class Chart extends React.Component {
       isLineChart: true,
       drawn: false,
       updateGraph: true,
-      yAxis: "memory_usage",
+      y: "memory_usage",
       color: "blue"
     };
 
     this.getNext = this.getNext.bind(this);
     this.drawGraph = this.drawGraph.bind(this);
+    this.changeGraph = this.changeGraph.bind(this);
+  }
+
+  changeGraph(event) {
+    this.setState({y: event.target.value, drawn: false});
   }
 
   componentDidMount() {
@@ -59,22 +64,22 @@ class Chart extends React.Component {
         // graph only when 10 elements present
         if ((self.state.dataQueue[9].length != 0) && !self.state.drawn) {
           self.setState({ drawn: true });
-          self.drawGraph(true,'memory_usage');
+          self.drawGraph(true);
         } else if ((self.state.dataQueue[9].length != 0) && self.state.drawn && self.state.updateGraph) {
-          self.drawGraph(false,'memory_usage');
+          self.drawGraph(false);
         }
 
         timer = setTimeout(self.getNext(delay, serverID, timer, requestObj), delay);
       });
   }
 
-  drawGraph(firstDraw, field) {
+  drawGraph(firstDraw) {
     var data = this.state.dataQueue.filter(function(d) {
       return !d.error               // skip over errors
-    }).map(function(d) {
+    }).map((d) => {
       return {
         date: d.from,
-        value: d.result.data[0][field]
+        value: d.result.data[0][this.state.y]
       };
     });
 
@@ -98,6 +103,7 @@ class Chart extends React.Component {
     var vis = null;
     if (firstDraw) {
       // create an svg container
+      d3.select(".svgAnchor").select("svg").remove();
       vis = d3.select(".svgAnchor")
               .append("svg:svg")
               .attr("width", width)
@@ -178,10 +184,11 @@ class Chart extends React.Component {
      });
 
     // now add titles to the axes
+    console.log(this.state);
     vis.append("text")
         .attr("text-anchor", "middle")  // this makes it easy to centre the text as the transform is applied to the anchor
         .attr("transform", "translate("+ (padding/2) +","+(height/2)+")rotate(-90)")  // text is drawn off the screen top left, move down and out and rotate
-        .text(field.replace(/_/g, " "));
+        .text(this.state.y.replace(/_/g, " "));
     vis.append("text")
         .attr("text-anchor", "middle")  // this makes it easy to centre the text as the transform is applied to the anchor
         .attr("transform", "translate("+ (width/2) +","+(height-(padding/3))+")")  // centre below axis
@@ -206,11 +213,11 @@ class Chart extends React.Component {
             <input type="text" className="form-control" id="formGroupExampleInput2" placeholder="x-axis title" />
           </div>
           <div className="form-group">
-            <select className="custom-select">
-              <option selected>y-axis</option>
-              <option value="1">memory usage</option>
-              <option value="2">memory available</option>
-              <option value="3">cpu usage</option>
+            <label for="yAxisSelector">y-axis</label>
+            <select value={this.state.y} onChange={this.changeGraph} className="custom-select" id="yAxisSelector">
+              <option value="memory_usage">memory usage</option>
+              <option value="memory_available">memory available</option>
+              <option value="cpu_usage">cpu usage</option>
             </select>
           </div>
           <div className="form-group">
