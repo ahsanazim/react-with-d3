@@ -9,7 +9,10 @@ class Chart extends React.Component {
         [],[],[],[],[],[],[],[],[],[]       // holds 10
       ],
       isLineChart: true,
-      drawn: false
+      drawn: false,
+      updateGraph: true,
+      yAxis: "memory_usage",
+      color: "blue"
     };
 
     this.getNext = this.getNext.bind(this);
@@ -57,7 +60,7 @@ class Chart extends React.Component {
         if ((self.state.dataQueue[9].length != 0) && !self.state.drawn) {
           self.setState({ drawn: true });
           self.drawGraph(true,'memory_usage');
-        } else if ((self.state.dataQueue[9].length != 0) && self.state.drawn) {
+        } else if ((self.state.dataQueue[9].length != 0) && self.state.drawn && self.state.updateGraph) {
           self.drawGraph(false,'memory_usage');
         }
 
@@ -87,6 +90,7 @@ class Chart extends React.Component {
 
     var x_domain = d3.extent(data, function(d) { return d.date; }),
         y_domain = d3.extent(data, function(d) { return d.value; });
+    y_domain[0] = 0;      // y min is always 0
 
     // display date format
     var date_format = d3.time.format("%H:%M:%S");
@@ -94,7 +98,7 @@ class Chart extends React.Component {
     var vis = null;
     if (firstDraw) {
       // create an svg container
-      vis = d3.select("body")
+      vis = d3.select(".svgAnchor")
               .append("svg:svg")
               .attr("width", width)
               .attr("height", height);
@@ -108,7 +112,7 @@ class Chart extends React.Component {
 
 
     var xScale = d3.time.scale()
-      .domain(x_domain)    // values between for month of january
+      .domain(x_domain)
       .range([padding, width - padding]);   // map these sides of the chart, in this case 100 and 600
 
 
@@ -126,11 +130,12 @@ class Chart extends React.Component {
     // Define the line
     var valueline = d3.svg.line()
         .x(function(d) { return xScale(d.date.getTime()); })
-        .y(function(d) { return yScale(d.value); });
+        .y(function(d) { return yScale(d.value); })
+        .interpolate("basis");
 
     if (!firstDraw) {
       // Select the section we want to apply our changes to
-      var svg = d3.select("body").transition();
+      var svg = d3.select(".svgAnchor").transition();
 
       // Make the changes
       svg.select(".line")   // change the line
@@ -192,6 +197,32 @@ class Chart extends React.Component {
 
     return (
       <div className="container">
+        <div className="svgAnchor"></div>
+        <form>
+          <div className="form-group">
+            <input type="text" className="form-control" id="formGroupExampleInput" placeholder="graph title" />
+          </div>
+          <div className="form-group">
+            <input type="text" className="form-control" id="formGroupExampleInput2" placeholder="x-axis title" />
+          </div>
+          <div className="form-group">
+            <select className="custom-select">
+              <option selected>y-axis</option>
+              <option value="1">memory usage</option>
+              <option value="2">memory available</option>
+              <option value="3">cpu usage</option>
+            </select>
+          </div>
+          <div className="form-group">
+            <select className="custom-select">
+              <option selected>marking color</option>
+              <option value="1">blue</option>
+              <option value="2">green</option>
+              <option value="3">orange</option>
+            </select>
+          </div>
+        </form>
+        <button onClick={() => this.setState({updateGraph: !this.state.updateGraph})} type="button" className="btn btn-outline-warning">Pause</button>
       </div>
     );
   }
@@ -201,24 +232,3 @@ ReactDOM.render(
   <Chart />,
   document.getElementById('main')
 );
-
-
-
-/*
-
-<App />
-
-which contains
-
-<div>
-  <Chart />
-  <Modal />
-</div>
-
-
-// make memory usage stable and don't set error to zero
-
-// some things will have 2 lines
-
-// there are 2 types of errors - bad ones and not-bad ones
-*/
