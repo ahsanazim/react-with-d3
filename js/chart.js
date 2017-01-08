@@ -66,18 +66,13 @@ class Chart extends React.Component {
   }
 
   drawGraph(firstDraw, field) {
-    var data = this.state.dataQueue.map(function(d) {
-      if (d.error){
-        return {
-          date: d.from,
-          value: 0
-        };
-      } else {
-        return {
-          date: d.from,
-          value: d.result.data[0][field]
-        };
-      }
+    var data = this.state.dataQueue.filter(function(d) {
+      return !d.error               // skip over errors
+    }).map(function(d) {
+      return {
+        date: d.from,
+        value: d.result.data[0][field]
+      };
     });
 
     console.log(data);
@@ -85,9 +80,6 @@ class Chart extends React.Component {
     var margin = {top: 20, right: 20, bottom: 30, left: 50},
         width = 960 - margin.left - margin.right,
         height = 500 - margin.top - margin.bottom;
-
-    var mindate = data[0].date,
-        maxdate = data[9].date;
 
     var width = 700,   // width of svg
         height = 400,  // height of svg
@@ -224,4 +216,9 @@ which contains
 </div>
 
 
+// make memory usage stable and don't set error to zero
+
+// some things will have 2 lines
+
+// there are 2 types of errors - bad ones and not-bad ones
 */
