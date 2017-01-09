@@ -8,13 +8,14 @@ class Chart extends React.Component {
       dataQueue: [
         [],[],[],[],[],[],[],[],[],[]       // holds 10
       ],
-      isLineChart: true,
+      chartType: "line",
       drawn: false,
       updateGraph: true,
       y: "memory_usage",
       color: "blue",
       color2: "red",
-      color3: "purple"
+      color3: "purple",
+      title: "memory usage VS time"
     };
 
     /* bound functions: */
@@ -29,11 +30,14 @@ class Chart extends React.Component {
     this.changeColor = this.changeColor.bind(this);
     this.changeColor2 = this.changeColor2.bind(this);
     this.changeColor3 = this.changeColor3.bind(this);
+    this.changeChartType = this.changeChartType.bind(this);
+    this.getBarColor = this.getBarColor.bind(this);
 
     // graphing + graphing helpers
     this.formatData = this.formatData.bind(this);
     this.getYDomain = this.getYDomain.bind(this);
     this.drawGraph = this.drawGraph.bind(this);
+    this.drawBarGraph = this.drawBarGraph.bind(this);
 
     // rendering
     this.renderColorList = this.renderColorList.bind(this);
@@ -42,6 +46,10 @@ class Chart extends React.Component {
   }
 
   /*  -------=========[ MISC. HELPER FUNCTIONS ]=========-------  */
+
+  getBarColor(name) {
+    return this.state[name];
+  }
 
   changeGraph(event) {
     this.setState({ y: event.target.value, drawn: false });
@@ -57,6 +65,10 @@ class Chart extends React.Component {
 
   changeColor3(event) {
     this.setState({ color3: event.target.value });
+  }
+
+  changeChartType(event) {
+    this.setState({ chartType: event.target.value, drawn: false });
   }
 
   yAxisUnit() {
@@ -122,9 +134,17 @@ class Chart extends React.Component {
         // graph only when 10 elements present
         if ((self.state.dataQueue[9].length != 0) && !self.state.drawn) {
           self.setState({ drawn: true });
-          self.drawGraph(true);
+          if(self.state.chartType == 'bar') {
+            self.drawBarGraph(true);
+          } else {
+            self.drawGraph(true);
+          }
         } else if ((self.state.dataQueue[9].length != 0) && self.state.drawn && self.state.updateGraph) {
-          self.drawGraph(false);
+          if(self.state.chartType == 'bar') {
+            self.drawBarGraph(false);
+          } else {
+            self.drawGraph(false);
+          }
         }
 
         timer = setTimeout(self.getNext(delay, serverID, timer, requestObj), delay);
@@ -157,7 +177,7 @@ class Chart extends React.Component {
           val1 = d.result.data[0][this.state.y].in
           val2 = d.result.data[0][this.state.y].out
           val1 = this.yAxisUnit() == 'kb' ? val1 / 1000 : val1
-          val2 = this.yAxisUnit() == 'kb' ? val1 / 1000 : val2
+          val2 = this.yAxisUnit() == 'kb' ? val2 / 1000 : val2
           return {
             date: date,
             val1: val1,
@@ -168,6 +188,7 @@ class Chart extends React.Component {
           val1 = d.result.data[0][this.state.y]
           val1 = this.yAxisUnit() == 'kb' ? val1 / 1000 : val1
           val1 = this.yAxisUnit() == '%' ? val1 * 100 : val1
+          console.log(val1);
           return {
             date: date,
             val1: val1
@@ -202,8 +223,6 @@ class Chart extends React.Component {
 
   drawGraph(firstDraw) {
     var data = this.formatData(this.state.dataQueue);
-
-    console.log(data);
 
     var width = 700,   // width of svg
         height = 400,  // height of svg
@@ -301,6 +320,9 @@ class Chart extends React.Component {
            return "translate(" + this.getBBox().height*-2 + "," + this.getBBox().height + ")rotate(-45)";
        });
 
+      svg.select("text.title")
+        .text(this.state.title);
+
       return
     }
 
@@ -351,6 +373,75 @@ class Chart extends React.Component {
           .attr("d", valueline3(data))
           .attr("stroke", this.state.color3);
     }
+
+    // title
+    vis.append("text")
+      .attr("x", (width / 2))
+      .attr("y", 0 + (width / 8))
+      .attr("text-anchor", "middle")
+      .attr("class", "title")
+      .style("font-size", "16px")
+      .style("text-decoration", "underline")
+      .text(this.state.title);
+
+  }
+
+  drawBarGraph(firstDraw) {
+    var margin = {top: 20, right: 30, bottom: 30, left: 40},
+        width = 700 - margin.left - margin.right,
+        height = 400 - margin.top - margin.bottom;
+
+    var y = d3.scale.linear()
+        .range([height, 0]);
+
+    var data = this.formatData(this.state.dataQueue);
+
+    if (this.getNumLines(this.state.y) == '3') {
+      data = [
+        { key: "color", value: data.reduce(function(p,c,i,a){return p + (c.val1/a.length)},0) },
+        { key: "color2", value: data.reduce(function(p,c,i,a){return p + (c.val2/a.length)},0) },
+        { key: "color3", value: data.reduce(function(p,c,i,a){return p + (c.val3/a.length)},0) }
+      ]
+    } else if (this.getNumLines(this.state.y) == '2')  {
+      data = [
+        { key: "color", value: data.reduce(function(p,c,i,a){return p + (c.val1/a.length)},0) },
+        { key: "color2", value: data.reduce(function(p,c,i,a){return p + (c.val2/a.length)},0) }
+      ]
+    } else {
+      data = [{ key: "color", value: data.reduce(function(p,c,i,a){return p + (c.val1/a.length)},0) }]
+    }
+
+    var barWidth = width / data.length;
+
+    d3.select(".svgAnchor").select("svg").remove();
+    let chart = d3.select(".svgAnchor")
+            .append("svg:svg")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
+          .append("g")
+            .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+    var max = (this.getNumLines(this.state.y) == '1') ? data[0].value + 50 : d3.max(data, function(d) { return d.value; })
+    y.domain([0, max]);
+
+    var bar = chart.selectAll("g")
+        .data(data)
+      .enter().append("g")
+        .attr("transform", function(d, i) { return "translate(" + i * barWidth + ",0)"; });
+
+    let self = this;
+    bar.append("rect")
+        .attr("y", function(d) { return y(d.value); })
+        .attr("height", function(d) { return height - y(d.value); })
+        .attr("fill", function(d) { return self.state[d.key] })
+        .attr("width", barWidth - 1);
+
+    bar.append("text")
+        .attr("x", barWidth / 2)
+        .attr("y", function(d) { return y(d.value) + 3; })
+        .attr("dy", ".75em")
+        .text(function(d) { return d.value; });
+
 
   }
 
@@ -411,24 +502,24 @@ class Chart extends React.Component {
       case 3:         // errors field
         return (
             <ul className="list-group">
-              <li className="list-group-item">system<span style={{color: this.state.color}}>---</span></li>
-              <li className="list-group-item">sensor<span style={{color: this.state.color2}}>---</span></li>
-              <li className="list-group-item">component<span style={{color: this.state.color3}}>---</span></li>
+              <li className="list-group-item">system [<span style={{color: this.state.color}}>O</span>]</li>
+              <li className="list-group-item">sensor [<span style={{color: this.state.color2}}>O</span>]</li>
+              <li className="list-group-item">component [<span style={{color: this.state.color3}}>O</span>]</li>
             </ul>
         );
         break;
       case 2:
         return (
             <ul className="list-group">
-              <li className="list-group-item">in<span style={{color: this.state.color}}>---</span></li>
-              <li className="list-group-item">out<span style={{color: this.state.color2}}>---</span></li>
+              <li className="list-group-item">in [<span style={{color: this.state.color}}>O</span>]</li>
+              <li className="list-group-item">out - [<span style={{color: this.state.color2}}>O</span>]</li>
             </ul>
         );
         break;
       case 1:
         return (
             <ul className="list-group">
-              <li className="list-group-item">{this.state.y}<span style={{color: this.state.color}}>---</span></li>
+              <li className="list-group-item">{this.state.y} [<span style={{color: this.state.color}}>O</span>]</li>
             </ul>
         );
         break;
@@ -444,13 +535,24 @@ class Chart extends React.Component {
         </div>
         <form>
           <div className="form-group">
-            <input type="text" className="form-control" id="formGroupExampleInput" placeholder="graph title" />
+            <label htmlFor="titleInput">title: </label>
+            <input type="text" id="titleInput" className="form-control" id="formGroupExampleInput" value={this.state.title}
+              onChange={(event) => this.setState({title: event.target.value})}/>
+          </div>
+          <div className="form-group">
+            <label htmlFor="chartTypeSelector">Chart type</label>
+            <select value={this.state.chartType} onChange={this.changeChartType} className="custom-select" id="chartTypeSelector">
+              <option value="line">line</option>
+              <option value="bar">bar</option>
+            </select>
           </div>
           <div className="form-group">
             <label htmlFor="yAxisSelector">y-axis</label>
             <select value={this.state.y} onChange={this.changeGraph} className="custom-select" id="yAxisSelector">
               <option value="memory_usage">memory usage</option>
               <option value="memory_available">memory available</option>
+              <option value="network_throughput">network throughput</option>
+              <option value="network_packet">network packet</option>
               <option value="cpu_usage">cpu usage</option>
               <option value="errors">errors</option>
             </select>
