@@ -12,7 +12,9 @@ class Chart extends React.Component {
       drawn: false,
       updateGraph: true,
       y: "memory_usage",
-      color: "blue"
+      color: "blue",
+      color2: "red",
+      color3: "purple"
     };
 
     this.getNext = this.getNext.bind(this);
@@ -22,7 +24,11 @@ class Chart extends React.Component {
     this.yAxisUnit = this.yAxisUnit.bind(this);
     this.formatData = this.formatData.bind(this);
     this.getNumLines = this.getNumLines.bind(this);
-    this.drawThreeLineGraph = this.drawThreeLineGraph.bind(this);
+    this.renderColorList = this.renderColorList.bind(this);
+    this.renderColorPicker = this.renderColorPicker.bind(this);
+    this.changeColor2 = this.changeColor2.bind(this);
+    this.changeColor3 = this.changeColor3.bind(this);
+    this.getYDomain = this.getYDomain.bind(this);
   }
 
   changeGraph(event) {
@@ -31,6 +37,14 @@ class Chart extends React.Component {
 
   changeColor(event) {
     this.setState({ color: event.target.value });
+  }
+
+  changeColor2(event) {
+    this.setState({ color2: event.target.value });
+  }
+
+  changeColor3(event) {
+    this.setState({ color3: event.target.value });
   }
 
   yAxisUnit() {
@@ -94,19 +108,9 @@ class Chart extends React.Component {
         // graph only when 10 elements present
         if ((self.state.dataQueue[9].length != 0) && !self.state.drawn) {
           self.setState({ drawn: true });
-          if (self.state.y == 'errors') {
-            self.drawThreeLineGraph(true)
-          } else {
-            self.drawGraph(true);
-          }
-          //self.drawGraph(true);
+          self.drawGraph(true);
         } else if ((self.state.dataQueue[9].length != 0) && self.state.drawn && self.state.updateGraph) {
-          if (self.state.y == 'errors') {
-            self.drawThreeLineGraph(false)
-          } else {
-            self.drawGraph(false);
-          }
-          //self.drawGraph(false);
+          self.drawGraph(false);
         }
 
         timer = setTimeout(self.getNext(delay, serverID, timer, requestObj), delay);
@@ -119,6 +123,7 @@ class Chart extends React.Component {
     }).map((d) => {
       let val1, val2, val3;
       let date = new Date(d.result.data[0].timestamp);
+      date = date.getTime();
       switch(this.getNumLines(this.state.y)) {
         case 3:         // errors field
           val1 = d.result.data[0][this.state.y].system
@@ -138,17 +143,17 @@ class Chart extends React.Component {
           val2 = this.yAxisUnit() == 'kb' ? val1 / 1000 : val2
           return {
             date: date,
-            value1: val1,
-            value2: val2
+            val1: val1,
+            val2: val2
           };
           break;
         case 1:
-          let value = d.result.data[0][this.state.y]
-          value = this.yAxisUnit() == 'kb' ? value / 1000 : value
-          value = this.yAxisUnit() == '%' ? value * 100 : value
+          val1 = d.result.data[0][this.state.y]
+          val1 = this.yAxisUnit() == 'kb' ? val1 / 1000 : val1
+          val1 = this.yAxisUnit() == '%' ? val1 * 100 : val1
           return {
             date: date,
-            value: value
+            val1: val1
           };
           break;
       }
@@ -157,25 +162,39 @@ class Chart extends React.Component {
     return data;
   }
 
+  getYDomain(data) {
+    let y_domain = [];
+    switch(this.getNumLines(this.state.y)) {
+      case 3:         // errors field
+        y_domain = [0, d3.max(data, function(d) { return Math.max(...[d.val1, d.val2, d.val3]); })]
+        break;
+      case 2:
+        y_domain = [0, d3.max(data, function(d) { return Math.max(...[d.val1, d.val2]); })]
+        break;
+      case 1:
+        y_domain = d3.extent(data, function(d) { return d.val1; });
+        break;
+    }
+    y_domain[0] = 0;      // y min is always 0
+    if (this.yAxisUnit() == 'cpu_usage') y_domain[1] = 100;  // since it's in %, max = 100
+
+    return y_domain;
+  }
+
   drawGraph(firstDraw) {
     var data = this.formatData(this.state.dataQueue);
 
     console.log(data);
-
-    var margin = {top: 20, right: 20, bottom: 30, left: 50},
-        width = 960 - margin.left - margin.right,
-        height = 500 - margin.top - margin.bottom;
+    // var margin = {top: 20, right: 20, bottom: 30, left: 50},
+    //     width = 960 - margin.left - margin.right,
+    //     height = 500 - margin.top - margin.bottom;
 
     var width = 700,   // width of svg
         height = 400,  // height of svg
         padding = 100; // space around the chart, not including labels
 
     var x_domain = d3.extent(data, function(d) { return d.date; }),
-        y_domain = d3.extent(data, function(d) { return d.value; });
-    y_domain[0] = 0;      // y min is always 0
-    if (this.yAxisUnit() == 'cpu_usage') {
-      y_domain[1] = 100;  // since it's in %, max = 100
-    }
+        y_domain = this.getYDomain(data);
 
     // display date format
     var date_format = d3.time.format("%H:%M:%S");
@@ -213,21 +232,46 @@ class Chart extends React.Component {
         .scale(xScale)
         .tickFormat(date_format);
 
-    // Define the line
-    var valueline = d3.svg.line()
-        .x(function(d) { return xScale(d.date.getTime()); })
-        .y(function(d) { return yScale(d.value); })
+    // Define the line(s)
+    var valueline1, valueline2, valueline3;
+    valueline1 = d3.svg.line()
+        .x(function(d) { return xScale(d.date); })
+        .y(function(d) { return yScale(d.val1); })
         .interpolate("basis");
+    if (this.getNumLines(this.state.y) > 1) {
+      valueline2 = d3.svg.line()
+          .x(function(d) { return xScale(d.date); })
+          .y(function(d) { return yScale(d.val2); })
+          .interpolate("basis");
+    }
+    if (this.getNumLines(this.state.y) > 2) {
+      valueline3 = d3.svg.line()
+          .x(function(d) { return xScale(d.date); })
+          .y(function(d) { return yScale(d.val3); })
+          .interpolate("basis");
+    }
 
     if (!firstDraw) {
       // Select the section we want to apply our changes to
       var svg = d3.select(".svgAnchor").transition();
 
       // Make the changes
-      svg.select(".line")   // change the line
+      svg.select(".line1")   // change the line
           .duration(750)
-          .attr("d", valueline(data))
+          .attr("d", valueline1(data))
           .attr("stroke", this.state.color);
+      if (this.getNumLines(this.state.y) > 1) {
+        svg.select(".line2")   // change the line
+            .duration(750)
+            .attr("d", valueline2(data))
+            .attr("stroke", this.state.color2);
+      }
+      if (this.getNumLines(this.state.y) > 2) {
+        svg.select(".line3")   // change the line
+            .duration(750)
+            .attr("d", valueline3(data))
+            .attr("stroke", this.state.color3);
+      }
       svg.select(".xaxis") // change the x axis
           .duration(750)
           .attr("transform", "translate(0," + (height - padding) + ")")
@@ -276,156 +320,72 @@ class Chart extends React.Component {
 
     // Add the valueline path.
     vis.append("path")
-        .attr("class", "line")
-        .attr("d", valueline(data))
+        .attr("class", "line line1")
+        .attr("d", valueline1(data))
         .attr("stroke", this.state.color);
+    if (this.getNumLines(this.state.y) > 1) {
+      vis.append("path")
+          .attr("class", "line line2")
+          .attr("d", valueline2(data))
+          .attr("stroke", this.state.color2);
+    }
+    if (this.getNumLines(this.state.y) > 2) {
+      vis.append("path")
+          .attr("class", "line line3")
+          .attr("d", valueline3(data))
+          .attr("stroke", this.state.color3);
+    }
+
   }
 
-  drawThreeLineGraph(firstDraw) {
-    var data = this.formatData(this.state.dataQueue);
-    console.log(data);
+  renderColorList(colorChangeFunc) {
+    return (
+      <select value={this.state.color} onChange={colorChangeFunc} className="custom-select" id="lineColorSelector">
+        <option value="blue">blue</option>
+        <option value="red">red</option>
+        <option value="green">green</option>
+        <option value="black">black</option>
+        <option value="orange">orange</option>
+        <option value="yellow">yellow</option>
+        <option value="purple">purple</option>
+        <option value="gray">gray</option>
+      </select>
+    );
+  }
 
-    var margin = {top: 20, right: 20, bottom: 30, left: 50},
-        width = 960 - margin.left - margin.right,
-        height = 500 - margin.top - margin.bottom;
-
-    var width = 700,   // width of svg
-        height = 400,  // height of svg
-        padding = 100; // space around the chart, not including labels
-
-    var x_domain = d3.extent(data, function(d) { return d.date; }),
-        y_domain = [0, d3.max(data, function(d) { return Math.max(...[d.val1, d.val2, d.val3]); })]
-
-    // display date format
-    var date_format = d3.time.format("%H:%M:%S");
-
-    var vis = null;
-    if (firstDraw) {
-      // create an svg container
-      d3.select(".svgAnchor").select("svg").remove();
-      vis = d3.select(".svgAnchor")
-              .append("svg:svg")
-              .attr("width", width)
-              .attr("height", height);
+  renderColorPicker() {
+    switch(this.getNumLines(this.state.y)) {
+      case 3:         // errors field
+        return (
+          <div className="form-group">
+            <label htmlFor="lineColorSelector">line color 1</label>
+            {this.renderColorList(this.changeColor)}
+            <label htmlFor="lineColorSelector">line color 2</label>
+            {this.renderColorList(this.changeColor2)}
+            <label htmlFor="lineColorSelector">line color 3</label>
+            {this.renderColorList(this.changeColor3)}
+          </div>
+        );
+        break;
+      case 2:
+        return (
+          <div className="form-group">
+            <label htmlFor="lineColorSelector">line color 1</label>
+            {this.renderColorList(this.changeColor)}
+            <label htmlFor="lineColorSelector">line color 2</label>
+            {this.renderColorList(this.changeColor2)}
+          </div>
+        );
+        break;
+      case 1:
+        return (
+          <div className="form-group">
+            <label htmlFor="lineColorSelector">line color</label>
+            {this.renderColorList(this.changeColor)}
+          </div>
+        );
+        break;
     }
-
-    // define the y scale  (vertical)
-    var yScale = d3.scale.linear()
-      .domain(y_domain).nice()   // make axis end in round number
-      .range([height - padding, padding]);   // map these to the chart height, less padding.  In this case 300 and 100
-      //REMEMBER: y axis range has the bigger number first because the y value of zero is at the top of chart and increases as you go down.
-
-
-    var xScale = d3.time.scale()
-      .domain(x_domain)
-      .range([padding, width - padding]);   // map these sides of the chart, in this case 100 and 600
-
-
-    // define the y axis
-    var yAxis = d3.svg.axis()
-        .orient("left")
-        .scale(yScale);
-
-    // define the x axis
-    var xAxis = d3.svg.axis()
-        .orient("bottom")
-        .scale(xScale)
-        .tickFormat(date_format);
-
-    // Define the line
-    var valueline = d3.svg.line()
-        .x(function(d) { return xScale(d.date.getTime()); })
-        .y(function(d) { return yScale(d.val1); })
-        .interpolate("basis");
-
-    var valueline2 = d3.svg.line()
-        .x(function(d) { return xScale(d.date.getTime()); })
-        .y(function(d) { return yScale(d.val2); })
-        .interpolate("basis");
-
-    var valueline3 = d3.svg.line()
-        .x(function(d) { return xScale(d.date.getTime()); })
-        .y(function(d) { return yScale(d.val3); })
-        .interpolate("basis");
-
-    if (!firstDraw) {
-      // Select the section we want to apply our changes to
-      var svg = d3.select(".svgAnchor").transition();
-
-      // Make the changes
-      svg.select(".line1")   // change the line
-          .duration(750)
-          .attr("d", valueline(data))
-          .attr("stroke", this.state.color);
-      svg.select(".line2")   // change the line
-          .duration(750)
-          .attr("d", valueline2(data))
-          .attr("stroke", this.state.color);
-      svg.select(".line3")   // change the line
-          .duration(750)
-          .attr("d", valueline3(data))
-          .attr("stroke", this.state.color);
-      svg.select(".xaxis") // change the x axis
-          .duration(750)
-          .attr("transform", "translate(0," + (height - padding) + ")")
-          .call(xAxis);
-      svg.select(".yaxis") // change the y axis
-          .duration(750)
-          .call(yAxis);
-
-      svg.selectAll(".xaxis text")  // select all the text elements for the xaxis
-        .attr("transform", function(d) {
-           return "translate(" + this.getBBox().height*-2 + "," + this.getBBox().height + ")rotate(-45)";
-       });
-
-      return
-    }
-
-    // draw y axis with labels and move in from the size by the amount of padding
-    vis.append("g")
-        .attr("class", "yaxis axis")
-        .attr("transform", "translate("+padding+",0)")
-        .call(yAxis);
-    // draw x axis with labels and move to the bottom of the chart area
-    vis.append("g")
-        .attr("class", "xaxis axis")  // two classes, one for css formatting, one for selection below
-        .attr("transform", "translate(0," + (height - padding) + ")")
-        .call(xAxis);
-
-    // now rotate text on x axis
-    // solution based on idea here: https://groups.google.com/forum/?fromgroups#!topic/d3-js/heOBPQF3sAY
-    // first move the text left so no longer centered on the tick
-    // then rotate up to get 45 degrees.
-    vis.selectAll(".xaxis text")  // select all the text elements for the xaxis
-      .attr("transform", function(d) {
-         return "translate(" + this.getBBox().height*-2 + "," + this.getBBox().height + ")rotate(-45)";
-     });
-
-    // now add titles to the axes
-    vis.append("text")
-        .attr("text-anchor", "middle")  // this makes it easy to centre the text as the transform is applied to the anchor
-        .attr("transform", "translate("+ (padding/2) +","+(height/2)+")rotate(-90)")  // text is drawn off the screen top left, move down and out and rotate
-        .text(`${this.state.y.replace(/_/g, " ")} (${this.yAxisUnit(this.state.y)})`);
-    vis.append("text")
-        .attr("text-anchor", "middle")  // this makes it easy to centre the text as the transform is applied to the anchor
-        .attr("transform", "translate("+ (width/2) +","+(height-(padding/3))+")")  // centre below axis
-        .text("Time");
-
-    // Add the valueline path.
-    vis.append("path")
-        .attr("class", "line line1")
-        .attr("d", valueline(data))
-        .attr("stroke", this.state.color);
-
-    vis.append("path")
-        .attr("class", "line line2")
-        .attr("d", valueline2(data))
-        .attr("stroke", "green");
-
-    vis.append("path")
-        .attr("class", "line line3")
-        .attr("d", valueline3(data))
-        .attr("stroke", "pink");
   }
 
   render() {
@@ -446,19 +406,7 @@ class Chart extends React.Component {
               <option value="errors">errors</option>
             </select>
           </div>
-          <div className="form-group">
-            <label htmlFor="lineColorSelector">line color</label>
-            <select value={this.state.color} onChange={this.changeColor} className="custom-select" id="lineColorSelector">
-              <option value="blue">blue</option>
-              <option value="red">red</option>
-              <option value="green">green</option>
-              <option value="black">black</option>
-              <option value="orange">orange</option>
-              <option value="yellow">yellow</option>
-              <option value="purple">purple</option>
-              <option value="gray">gray</option>
-            </select>
-          </div>
+          {this.renderColorPicker()}
         </form>
         <button onClick={() => this.setState({updateGraph: !this.state.updateGraph})} type="button" className="btn btn-outline-warning">Pause</button>
       </div>
