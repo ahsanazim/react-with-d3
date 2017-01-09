@@ -18,6 +18,27 @@ class Chart extends React.Component {
       title: "memory usage VS time"
     };
 
+    // color to hash code
+    this.colorDict = {
+      "blue" : "#6d84b4",
+      "red": "#ff6666",
+      "green" : "#7fff7f",
+      "black" : "#191919",
+      "orange" : "#ffc04c",
+      "yellow" : "#ffff66",
+      "purple" : "#D8BFD8",
+      "gray" : "#D3D3D3"
+    }
+
+    this.upperBounds = {
+      'memory_usage': 40,
+      'memory_available': 40,
+      'network_throughput': 20,
+      'network_packet': 1000,
+      'cpu_usage': 100,
+      'errors': 5
+    }
+
     /* bound functions: */
 
     // api
@@ -214,7 +235,7 @@ class Chart extends React.Component {
         break;
     }
     y_domain[0] = 0;      // y min is always 0
-    if (this.yAxisUnit() == 'cpu_usage') y_domain[1] = 100;  // since it's in %, max = 100
+    y_domain[1] = this.upperBounds[this.state.y];
 
     return y_domain;
   }
@@ -294,18 +315,18 @@ class Chart extends React.Component {
       svg.select(".line1")   // change the line
           .duration(750)
           .attr("d", valueline1(data))
-          .attr("stroke", this.state.color);
+          .attr("stroke", this.colorDict[this.state.color]);
       if (this.getNumLines(this.state.y) > 1) {
         svg.select(".line2")   // change the line
             .duration(750)
             .attr("d", valueline2(data))
-            .attr("stroke", this.state.color2);
+            .attr("stroke", this.colorDict[this.state.color2]);
       }
       if (this.getNumLines(this.state.y) > 2) {
         svg.select(".line3")   // change the line
             .duration(750)
             .attr("d", valueline3(data))
-            .attr("stroke", this.state.color3);
+            .attr("stroke", this.colorDict[this.state.color3]);
       }
       svg.select(".xaxis") // change the x axis
           .duration(750)
@@ -338,9 +359,6 @@ class Chart extends React.Component {
         .call(xAxis);
 
     // now rotate text on x axis
-    // solution based on idea here: https://groups.google.com/forum/?fromgroups#!topic/d3-js/heOBPQF3sAY
-    // first move the text left so no longer centered on the tick
-    // then rotate up to get 45 degrees.
     vis.selectAll(".xaxis text")  // select all the text elements for the xaxis
       .attr("transform", function(d) {
          return "translate(" + this.getBBox().height*-2 + "," + this.getBBox().height + ")rotate(-45)";
@@ -360,18 +378,18 @@ class Chart extends React.Component {
     vis.append("path")
         .attr("class", "line line1")
         .attr("d", valueline1(data))
-        .attr("stroke", this.state.color);
+        .attr("stroke", this.colorDict[this.state.color]);
     if (this.getNumLines(this.state.y) > 1) {
       vis.append("path")
           .attr("class", "line line2")
           .attr("d", valueline2(data))
-          .attr("stroke", this.state.color2);
+          .attr("stroke", this.colorDict[this.state.color2]);
     }
     if (this.getNumLines(this.state.y) > 2) {
       vis.append("path")
           .attr("class", "line line3")
           .attr("d", valueline3(data))
-          .attr("stroke", this.state.color3);
+          .attr("stroke", this.colorDict[this.state.color3]);
     }
 
     // title
@@ -381,7 +399,6 @@ class Chart extends React.Component {
       .attr("text-anchor", "middle")
       .attr("class", "title")
       .style("font-size", "16px")
-      .style("text-decoration", "underline")
       .text(this.state.title);
 
   }
@@ -413,6 +430,23 @@ class Chart extends React.Component {
 
     var barWidth = width / data.length;
 
+    var x = d3.scale.ordinal()
+        .rangeRoundBands([0, width], .5);
+
+    var y = d3.scale.linear()
+        .range([height, 0]);
+
+    var xAxis = d3.svg.axis()
+        .scale(x)
+        .orient("bottom");
+
+    var yAxis = d3.svg.axis()
+        .scale(y)
+        .orient("left");
+
+    x.domain(data.map(function(d) { return d.key; }));
+    y.domain([0, this.upperBounds[this.state.y]]);
+
     d3.select(".svgAnchor").select("svg").remove();
     let chart = d3.select(".svgAnchor")
             .append("svg:svg")
@@ -421,28 +455,34 @@ class Chart extends React.Component {
           .append("g")
             .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
-    var max = (this.getNumLines(this.state.y) == '1') ? data[0].value + 50 : d3.max(data, function(d) { return d.value; })
-    y.domain([0, max]);
+    chart.append("g")
+        .attr("class", "x axis")
+        .attr("transform", "translate(0," + height + ")")
+        .call(xAxis);
 
-    var bar = chart.selectAll("g")
-        .data(data)
-      .enter().append("g")
-        .attr("transform", function(d, i) { return "translate(" + i * barWidth + ",0)"; });
+    chart.append("g")
+        .attr("class", "y axis")
+        .call(yAxis);
 
     let self = this;
-    bar.append("rect")
+    chart.selectAll(".bar")
+        .data(data)
+      .enter().append("rect")
+        .attr("class", "bar")
+        .attr("x", function(d) { return x(d.key); })
         .attr("y", function(d) { return y(d.value); })
         .attr("height", function(d) { return height - y(d.value); })
-        .attr("fill", function(d) { return self.state[d.key] })
-        .attr("width", barWidth - 1);
+        .attr("width", x.rangeBand())
+        .attr("fill", function(d) { return self.colorDict[self.state[d.key]]; });
 
-    bar.append("text")
-        .attr("x", barWidth / 2)
-        .attr("y", function(d) { return y(d.value) + 3; })
-        .attr("dy", ".75em")
-        .text(function(d) { return d.value; });
-
-
+    // title
+    chart.append("text")
+      .attr("x", (width / 2))
+      .attr("y", 0 + height/15)
+      .attr("text-anchor", "middle")
+      .attr("class", "title")
+      .style("font-size", "16px")
+      .text(this.state.title);
   }
 
   /*  -------=========[ RENDER HELPER FUNCTIONS ]=========-------  */
@@ -501,25 +541,25 @@ class Chart extends React.Component {
     switch(this.getNumLines(this.state.y)) {
       case 3:         // errors field
         return (
-            <ul className="list-group">
-              <li className="list-group-item">system [<span style={{color: this.state.color}}>O</span>]</li>
-              <li className="list-group-item">sensor [<span style={{color: this.state.color2}}>O</span>]</li>
-              <li className="list-group-item">component [<span style={{color: this.state.color3}}>O</span>]</li>
-            </ul>
+          <ul className="list-group">
+            <li className="list-group-item">system<span style={{color: this.colorDict[this.state.color]}}>&#x2587;</span></li>
+            <li className="list-group-item">sensor<span style={{color: this.colorDict[this.state.color2]}}>&#x2587;</span></li>
+            <li className="list-group-item">component<span style={{color: this.colorDict[this.state.color3]}}>&#x2587;</span></li>
+          </ul>
         );
         break;
       case 2:
         return (
             <ul className="list-group">
-              <li className="list-group-item">in [<span style={{color: this.state.color}}>O</span>]</li>
-              <li className="list-group-item">out - [<span style={{color: this.state.color2}}>O</span>]</li>
+              <li className="list-group-item">in <span style={{color: this.colorDict[this.state.color]}}>&#x2587;</span></li>
+              <li className="list-group-item">out <span style={{color: this.colorDict[this.state.color2]}}>&#x2587;</span></li>
             </ul>
         );
         break;
       case 1:
         return (
             <ul className="list-group">
-              <li className="list-group-item">{this.state.y} [<span style={{color: this.state.color}}>O</span>]</li>
+              <li className="list-group-item">{this.state.y} <span style={{color: this.colorDict[this.state.color]}}>&#x2587;</span></li>
             </ul>
         );
         break;
