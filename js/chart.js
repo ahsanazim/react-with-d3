@@ -604,8 +604,3 @@ class Chart extends React.Component {
     );
   }
 }
-
-ReactDOM.render(
-  <Chart />,
-  document.getElementById('main')
-);
