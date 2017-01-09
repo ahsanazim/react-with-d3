@@ -1,5 +1,9 @@
 .line {
   fill: none;
-  stroke: steelblue;
   stroke-width: 1.5px;
+}
+
+.svgAnchor {
+  height: 400px;
+  width: 700px;
 }

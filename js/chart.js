@@ -18,10 +18,39 @@ class Chart extends React.Component {
     this.getNext = this.getNext.bind(this);
     this.drawGraph = this.drawGraph.bind(this);
     this.changeGraph = this.changeGraph.bind(this);
+    this.changeColor = this.changeColor.bind(this);
+    this.yAxisUnit = this.yAxisUnit.bind(this);
+    this.formatData = this.formatData.bind(this);
+    this.getNumLines = this.getNumLines.bind(this);
   }
 
   changeGraph(event) {
-    this.setState({y: event.target.value, drawn: false});
+    this.setState({ y: event.target.value, drawn: false });
+  }
+
+  changeColor(event) {
+    this.setState({ color: event.target.value });
+  }
+
+  yAxisUnit() {
+    const kb_unit = ['memory_usage', 'network_throughput', 'memory_available'];
+    if (kb_unit.includes(this.state.y)) {
+      return 'kb'
+    } else if (this.state.y == 'cpu_usage') {
+      return  '%'
+    } else {
+      return ''
+    }
+  }
+
+  getNumLines(field) {
+    if (field == 'errors') {
+      return 3;
+    } else if (field == 'network_packet' || field == 'network_throughput') {
+      return 2;
+    } else {
+      return 1;
+    }
   }
 
   componentDidMount() {
@@ -73,15 +102,52 @@ class Chart extends React.Component {
       });
   }
 
-  drawGraph(firstDraw) {
-    var data = this.state.dataQueue.filter(function(d) {
-      return !d.error               // skip over errors
+  formatData(inputData) {
+    var data = inputData.filter(function(d) {
+      return !d.error               // skip over overall error
     }).map((d) => {
-      return {
-        date: d.from,
-        value: d.result.data[0][this.state.y]
-      };
+      let val1, val2, val3;
+      let date = new Date(d.result.data[0].timestamp);
+      switch(this.getNumLines(this.state.y)) {
+        case 3:         // errors field
+          val1 = d.result.data[0][this.state.y].system
+          val2 = d.result.data[0][this.state.y].sensor
+          val3 = d.result.data[0][this.state.y].component
+          return {
+            date: date,
+            value1: val1,
+            value2: val2,
+            value3: val3
+          };
+          break;
+        case 2:
+          val1 = d.result.data[0][this.state.y].in
+          val2 = d.result.data[0][this.state.y].out
+          val1 = this.yAxisUnit() == 'kb' ? val1 / 1000 : val1
+          val2 = this.yAxisUnit() == 'kb' ? val1 / 1000 : val2
+          return {
+            date: date,
+            value1: val1,
+            value2: val2
+          };
+          break;
+        case 1:
+          let value = d.result.data[0][this.state.y]
+          value = this.yAxisUnit() == 'kb' ? value / 1000 : value
+          value = this.yAxisUnit() == '%' ? value * 100 : value
+          return {
+            date: date,
+            value: value
+          };
+          break;
+      }
     });
+
+    return data;
+  }
+
+  drawGraph(firstDraw) {
+    var data = this.formatData(this.state.dataQueue);
 
     console.log(data);
 
@@ -96,6 +162,9 @@ class Chart extends React.Component {
     var x_domain = d3.extent(data, function(d) { return d.date; }),
         y_domain = d3.extent(data, function(d) { return d.value; });
     y_domain[0] = 0;      // y min is always 0
+    if (this.yAxisUnit() == 'cpu_usage') {
+      y_domain[1] = 100;  // since it's in %, max = 100
+    }
 
     // display date format
     var date_format = d3.time.format("%H:%M:%S");
@@ -146,7 +215,8 @@ class Chart extends React.Component {
       // Make the changes
       svg.select(".line")   // change the line
           .duration(750)
-          .attr("d", valueline(data));
+          .attr("d", valueline(data))
+          .attr("stroke", this.state.color);
       svg.select(".xaxis") // change the x axis
           .duration(750)
           .attr("transform", "translate(0," + (height - padding) + ")")
@@ -184,11 +254,10 @@ class Chart extends React.Component {
      });
 
     // now add titles to the axes
-    console.log(this.state);
     vis.append("text")
         .attr("text-anchor", "middle")  // this makes it easy to centre the text as the transform is applied to the anchor
         .attr("transform", "translate("+ (padding/2) +","+(height/2)+")rotate(-90)")  // text is drawn off the screen top left, move down and out and rotate
-        .text(this.state.y.replace(/_/g, " "));
+        .text(`${this.state.y.replace(/_/g, " ")} (${this.yAxisUnit(this.state.y)})`);
     vis.append("text")
         .attr("text-anchor", "middle")  // this makes it easy to centre the text as the transform is applied to the anchor
         .attr("transform", "translate("+ (width/2) +","+(height-(padding/3))+")")  // centre below axis
@@ -197,7 +266,9 @@ class Chart extends React.Component {
     // Add the valueline path.
     vis.append("path")
         .attr("class", "line")
-        .attr("d", valueline(data));
+        .attr("d", valueline(data))
+        .attr("stroke", this.state.color);
+
   }
 
   render() {
@@ -210,10 +281,7 @@ class Chart extends React.Component {
             <input type="text" className="form-control" id="formGroupExampleInput" placeholder="graph title" />
           </div>
           <div className="form-group">
-            <input type="text" className="form-control" id="formGroupExampleInput2" placeholder="x-axis title" />
-          </div>
-          <div className="form-group">
-            <label for="yAxisSelector">y-axis</label>
+            <label htmlFor="yAxisSelector">y-axis</label>
             <select value={this.state.y} onChange={this.changeGraph} className="custom-select" id="yAxisSelector">
               <option value="memory_usage">memory usage</option>
               <option value="memory_available">memory available</option>
@@ -221,11 +289,16 @@ class Chart extends React.Component {
             </select>
           </div>
           <div className="form-group">
-            <select className="custom-select">
-              <option selected>marking color</option>
-              <option value="1">blue</option>
-              <option value="2">green</option>
-              <option value="3">orange</option>
+            <label htmlFor="lineColorSelector">line color</label>
+            <select value={this.state.color} onChange={this.changeColor} className="custom-select" id="lineColorSelector">
+              <option value="blue">blue</option>
+              <option value="red">red</option>
+              <option value="green">green</option>
+              <option value="black">black</option>
+              <option value="orange">orange</option>
+              <option value="yellow">yellow</option>
+              <option value="purple">purple</option>
+              <option value="gray">gray</option>
             </select>
           </div>
         </form>
