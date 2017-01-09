@@ -17,19 +17,31 @@ class Chart extends React.Component {
       color3: "purple"
     };
 
+    /* bound functions: */
+
+    // api
     this.getNext = this.getNext.bind(this);
-    this.drawGraph = this.drawGraph.bind(this);
+
+    // misc helpers
+    this.yAxisUnit = this.yAxisUnit.bind(this);
+    this.getNumLines = this.getNumLines.bind(this);
     this.changeGraph = this.changeGraph.bind(this);
     this.changeColor = this.changeColor.bind(this);
-    this.yAxisUnit = this.yAxisUnit.bind(this);
-    this.formatData = this.formatData.bind(this);
-    this.getNumLines = this.getNumLines.bind(this);
-    this.renderColorList = this.renderColorList.bind(this);
-    this.renderColorPicker = this.renderColorPicker.bind(this);
     this.changeColor2 = this.changeColor2.bind(this);
     this.changeColor3 = this.changeColor3.bind(this);
+
+    // graphing + graphing helpers
+    this.formatData = this.formatData.bind(this);
     this.getYDomain = this.getYDomain.bind(this);
+    this.drawGraph = this.drawGraph.bind(this);
+
+    // rendering
+    this.renderColorList = this.renderColorList.bind(this);
+    this.renderColorPicker = this.renderColorPicker.bind(this);
+    this.renderLegend = this.renderLegend.bind(this);
   }
+
+  /*  -------=========[ MISC. HELPER FUNCTIONS ]=========-------  */
 
   changeGraph(event) {
     this.setState({ y: event.target.value, drawn: false });
@@ -68,6 +80,7 @@ class Chart extends React.Component {
     }
   }
 
+  /* initiate graphing once mounted */
   componentDidMount() {
     let delay = 1000;
     let serverID = "server1";
@@ -77,6 +90,7 @@ class Chart extends React.Component {
     this.getNext(delay,serverID,timer,requestObj);
   }
 
+  /*  -------=========[ API INTERACTION ]=========-------  */
   getNext(delay, serverID, timer, requestObj) {
     let self = this;
     let newData = [];
@@ -116,6 +130,9 @@ class Chart extends React.Component {
         timer = setTimeout(self.getNext(delay, serverID, timer, requestObj), delay);
       });
   }
+
+
+  /*  -------=========[ GRAPHING HELPER FUNCTIONS ]=========-------  */
 
   formatData(inputData) {
     var data = inputData.filter(function(d) {
@@ -181,13 +198,12 @@ class Chart extends React.Component {
     return y_domain;
   }
 
+  /*  -------=========[ GRAPHING ]=========-------  */
+
   drawGraph(firstDraw) {
     var data = this.formatData(this.state.dataQueue);
 
     console.log(data);
-    // var margin = {top: 20, right: 20, bottom: 30, left: 50},
-    //     width = 960 - margin.left - margin.right,
-    //     height = 500 - margin.top - margin.bottom;
 
     var width = 700,   // width of svg
         height = 400,  // height of svg
@@ -338,9 +354,11 @@ class Chart extends React.Component {
 
   }
 
-  renderColorList(colorChangeFunc) {
+  /*  -------=========[ RENDER HELPER FUNCTIONS ]=========-------  */
+
+  renderColorList(colorChangeFunc,color) {
     return (
-      <select value={this.state.color} onChange={colorChangeFunc} className="custom-select" id="lineColorSelector">
+      <select value={color} onChange={colorChangeFunc} className="custom-select" id="lineColorSelector">
         <option value="blue">blue</option>
         <option value="red">red</option>
         <option value="green">green</option>
@@ -359,11 +377,11 @@ class Chart extends React.Component {
         return (
           <div className="form-group">
             <label htmlFor="lineColorSelector">line color 1</label>
-            {this.renderColorList(this.changeColor)}
+            {this.renderColorList(this.changeColor,this.state.color)}
             <label htmlFor="lineColorSelector">line color 2</label>
-            {this.renderColorList(this.changeColor2)}
+            {this.renderColorList(this.changeColor2,this.state.color2)}
             <label htmlFor="lineColorSelector">line color 3</label>
-            {this.renderColorList(this.changeColor3)}
+            {this.renderColorList(this.changeColor3,this.state.color3)}
           </div>
         );
         break;
@@ -371,9 +389,9 @@ class Chart extends React.Component {
         return (
           <div className="form-group">
             <label htmlFor="lineColorSelector">line color 1</label>
-            {this.renderColorList(this.changeColor)}
+            {this.renderColorList(this.changeColor,this.state.color)}
             <label htmlFor="lineColorSelector">line color 2</label>
-            {this.renderColorList(this.changeColor2)}
+            {this.renderColorList(this.changeColor2,this.state.color2)}
           </div>
         );
         break;
@@ -381,18 +399,49 @@ class Chart extends React.Component {
         return (
           <div className="form-group">
             <label htmlFor="lineColorSelector">line color</label>
-            {this.renderColorList(this.changeColor)}
+            {this.renderColorList(this.changeColor,this.state.color)}
           </div>
         );
         break;
     }
   }
 
-  render() {
+  renderLegend() {
+    switch(this.getNumLines(this.state.y)) {
+      case 3:         // errors field
+        return (
+            <ul className="list-group">
+              <li className="list-group-item">system<span style={{color: this.state.color}}>---</span></li>
+              <li className="list-group-item">sensor<span style={{color: this.state.color2}}>---</span></li>
+              <li className="list-group-item">component<span style={{color: this.state.color3}}>---</span></li>
+            </ul>
+        );
+        break;
+      case 2:
+        return (
+            <ul className="list-group">
+              <li className="list-group-item">in<span style={{color: this.state.color}}>---</span></li>
+              <li className="list-group-item">out<span style={{color: this.state.color2}}>---</span></li>
+            </ul>
+        );
+        break;
+      case 1:
+        return (
+            <ul className="list-group">
+              <li className="list-group-item">{this.state.y}<span style={{color: this.state.color}}>---</span></li>
+            </ul>
+        );
+        break;
+    }
+  }
 
+  render() {
     return (
       <div className="container">
         <div className="svgAnchor"></div>
+        <div>Legend:
+          {this.renderLegend()}
+        </div>
         <form>
           <div className="form-group">
             <input type="text" className="form-control" id="formGroupExampleInput" placeholder="graph title" />
