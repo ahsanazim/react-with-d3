@@ -1,8 +1,11 @@
 # Contrail: real-time data visualization with react.js & d3
 
+![alt text]()
+
 ## Accessing the site:
 
-You can either access the deployed site or, clone and run locally:
+You can either access the deployed site or, clone and run locally. Since the deployed site sometimes acts weirdly, 
+make sure to check out the local version if you suspect something isn't quite right!
 
 ### Deployed Site:
 
