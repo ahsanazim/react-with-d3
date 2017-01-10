@@ -140,7 +140,7 @@ class Post extends React.Component {
               </div>
           </div>
           <div className="form-group">
-            <button type="button" onClick={this.onSubmit} className="btn btn-outline-primary">Submit</button>
+            <button type="button" onClick={this.onSubmit} className="btn btn-primary">Submit</button>
           </div>
       </form>
     );

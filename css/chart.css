@@ -1,10 +1,34 @@
+
+.container {
+  width: 100% !important;
+  display: flex;
+  flex-flow: row nowrap;
+  justify-content: space-around;
+  margin: 0px !important;
+}
+
+.color-list {
+  display: flex;
+  flex-flow: column nowrap;
+  justify-content: flex-start;
+}
+
+.tupleContainer {
+  display: flex;
+  flex-flow: row nowrap;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* d3-related styles */
+
 .line {
   fill: none;
   stroke-width: 1.5px;
 }
 
 .svgAnchor {
-  height: 400px;
+  height: 600px;
   width: 700px;
 }
 

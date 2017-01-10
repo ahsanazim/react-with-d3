@@ -57,6 +57,7 @@ class Chart extends React.Component {
     // graphing + graphing helpers
     this.formatData = this.formatData.bind(this);
     this.getYDomain = this.getYDomain.bind(this);
+    this.getXDomain = this.getXDomain.bind(this);
     this.drawGraph = this.drawGraph.bind(this);
     this.drawBarGraph = this.drawBarGraph.bind(this);
 
@@ -240,13 +241,23 @@ class Chart extends React.Component {
     return y_domain;
   }
 
+  getXDomain() {
+    if (this.getNumLines(this.state.y) == 3) {
+      return ['system', 'sensor', 'component'];
+    } else if (this.getNumLines(this.state.y) == 2) {
+      return ['in', 'out'];
+    } else {
+      return [this.state.y];
+    }
+  }
+
   /*  -------=========[ GRAPHING ]=========-------  */
 
   drawGraph(firstDraw) {
     var data = this.formatData(this.state.dataQueue);
 
     var width = 700,   // width of svg
-        height = 400,  // height of svg
+        height = 500,  // height of svg
         padding = 100; // space around the chart, not including labels
 
     var x_domain = d3.extent(data, function(d) { return d.date; }),
@@ -404,9 +415,9 @@ class Chart extends React.Component {
   }
 
   drawBarGraph(firstDraw) {
-    var margin = {top: 20, right: 30, bottom: 30, left: 40},
+    var margin = {top: 20, right: 30, bottom: 30, left: 50},
         width = 700 - margin.left - margin.right,
-        height = 400 - margin.top - margin.bottom;
+        height = 500 - margin.top - margin.bottom;
 
     var y = d3.scale.linear()
         .range([height, 0]);
@@ -444,7 +455,7 @@ class Chart extends React.Component {
         .scale(y)
         .orient("left");
 
-    x.domain(data.map(function(d) { return d.key; }));
+    x.domain(this.getXDomain());
     y.domain([0, this.upperBounds[this.state.y]]);
 
     d3.select(".svgAnchor").select("svg").remove();
@@ -465,11 +476,13 @@ class Chart extends React.Component {
         .call(yAxis);
 
     let self = this;
+    let xDomain = this.getXDomain();
+    let currField = 0;
     chart.selectAll(".bar")
         .data(data)
       .enter().append("rect")
         .attr("class", "bar")
-        .attr("x", function(d) { return x(d.key); })
+        .attr("x", function(d) { currField++; console.log(x(xDomain[currField - 1])); return x(xDomain[currField - 1]); })
         .attr("y", function(d) { return y(d.value); })
         .attr("height", function(d) { return height - y(d.value); })
         .attr("width", x.rangeBand())
@@ -483,6 +496,12 @@ class Chart extends React.Component {
       .attr("class", "title")
       .style("font-size", "16px")
       .text(this.state.title);
+
+    // axis labels
+    chart.append("text")
+        .attr("text-anchor", "middle")  // this makes it easy to centre the text as the transform is applied to the anchor
+        .attr("transform", "translate("+ -40 +","+(height/2)+")rotate(-90)")  // text is drawn off the screen top left, move down and out and rotate
+        .text(`${this.yAxisUnit(this.state.y)}`);
   }
 
   /*  -------=========[ RENDER HELPER FUNCTIONS ]=========-------  */
@@ -506,31 +525,43 @@ class Chart extends React.Component {
     switch(this.getNumLines(this.state.y)) {
       case 3:         // errors field
         return (
-          <div className="form-group">
-            <label htmlFor="lineColorSelector">line color 1</label>
-            {this.renderColorList(this.changeColor,this.state.color)}
-            <label htmlFor="lineColorSelector">line color 2</label>
-            {this.renderColorList(this.changeColor2,this.state.color2)}
-            <label htmlFor="lineColorSelector">line color 3</label>
-            {this.renderColorList(this.changeColor3,this.state.color3)}
+          <div className="form-group color-list">
+            <div className="tupleContainer">
+              <label htmlFor="lineColorSelector">line color 1</label>
+              {this.renderColorList(this.changeColor,this.state.color)}
+            </div>
+            <div className="tupleContainer">
+              <label htmlFor="lineColorSelector">line color 2</label>
+              {this.renderColorList(this.changeColor2,this.state.color2)}
+            </div>
+            <div className="tupleContainer">
+              <label htmlFor="lineColorSelector">line color 3</label>
+              {this.renderColorList(this.changeColor3,this.state.color3)}
+            </div>
           </div>
         );
         break;
       case 2:
         return (
-          <div className="form-group">
-            <label htmlFor="lineColorSelector">line color 1</label>
-            {this.renderColorList(this.changeColor,this.state.color)}
-            <label htmlFor="lineColorSelector">line color 2</label>
-            {this.renderColorList(this.changeColor2,this.state.color2)}
+          <div className="form-group color-list">
+            <div className="tupleContainer">
+              <label htmlFor="lineColorSelector">line color 1</label>
+              {this.renderColorList(this.changeColor,this.state.color)}
+            </div>
+            <div className="tupleContainer">
+              <label htmlFor="lineColorSelector">line color 2</label>
+              {this.renderColorList(this.changeColor2,this.state.color2)}
+            </div>
           </div>
         );
         break;
       case 1:
         return (
-          <div className="form-group">
-            <label htmlFor="lineColorSelector">line color</label>
-            {this.renderColorList(this.changeColor,this.state.color)}
+          <div className="form-group color-list">
+            <div className="tupleContainer">
+              <label htmlFor="lineColorSelector">line color</label>
+              {this.renderColorList(this.changeColor,this.state.color)}
+            </div>
           </div>
         );
         break;
@@ -542,24 +573,42 @@ class Chart extends React.Component {
       case 3:         // errors field
         return (
           <ul className="list-group">
-            <li className="list-group-item">system<span style={{color: this.colorDict[this.state.color]}}>&#x2587;</span></li>
-            <li className="list-group-item">sensor<span style={{color: this.colorDict[this.state.color2]}}>&#x2587;</span></li>
-            <li className="list-group-item">component<span style={{color: this.colorDict[this.state.color3]}}>&#x2587;</span></li>
+            <li className="list-group-item tupleContainer">
+              <span>system</span>
+              <span style={{color: this.colorDict[this.state.color]}}>&#x2587;</span>
+            </li>
+            <li className="list-group-item tupleContainer">
+              <span>sensor</span>
+              <span style={{color: this.colorDict[this.state.color2]}}>&#x2587;</span>
+            </li>
+            <li className="list-group-item tupleContainer">
+              <span>component</span>
+              <span style={{color: this.colorDict[this.state.color3]}}>&#x2587;</span>
+            </li>
           </ul>
         );
         break;
       case 2:
         return (
-            <ul className="list-group">
-              <li className="list-group-item">in <span style={{color: this.colorDict[this.state.color]}}>&#x2587;</span></li>
-              <li className="list-group-item">out <span style={{color: this.colorDict[this.state.color2]}}>&#x2587;</span></li>
-            </ul>
+          <ul className="list-group">
+            <li className="list-group-item tupleContainer">
+              <span>in</span>
+              <span style={{color: this.colorDict[this.state.color]}}>&#x2587;</span>
+            </li>
+            <li className="list-group-item tupleContainer">
+              <span>out</span>
+              <span style={{color: this.colorDict[this.state.color2]}}>&#x2587;</span>
+            </li>
+          </ul>
         );
         break;
       case 1:
         return (
             <ul className="list-group">
-              <li className="list-group-item">{this.state.y} <span style={{color: this.colorDict[this.state.color]}}>&#x2587;</span></li>
+              <li className="list-group-item tupleContainer">
+                <span>in</span>
+                <span style={{color: this.colorDict[this.state.color]}}>&#x2587;</span>
+              </li>
             </ul>
         );
         break;
@@ -570,36 +619,43 @@ class Chart extends React.Component {
     return (
       <div className="container">
         <div className="svgAnchor"></div>
-        <div>Legend:
-          {this.renderLegend()}
+        <div className="editSection">
+          <h1>Tools</h1>
+          <div>Legend:
+            {this.renderLegend()}
+          </div>
+          <form>
+            <div className="form-group">
+              <label htmlFor="titleInput">Title: </label>
+              <input type="text" id="titleInput" className="form-control" id="formGroupExampleInput" value={this.state.title}
+                onChange={(event) => this.setState({title: event.target.value})}/>
+            </div>
+            <div className="form-group">
+              <div className="tupleContainer">
+                <label htmlFor="chartTypeSelector">Chart type</label>
+                <select value={this.state.chartType} onChange={this.changeChartType} className="custom-select" id="chartTypeSelector">
+                  <option value="line">line</option>
+                  <option value="bar">bar</option>
+                </select>
+              </div>
+            </div>
+            <div className="form-group tupleContainer">
+              <label htmlFor="yAxisSelector">y axis</label>
+              <select value={this.state.y} onChange={this.changeGraph} className="custom-select" id="yAxisSelector">
+                <option value="memory_usage">memory usage</option>
+                <option value="memory_available">memory available</option>
+                <option value="network_throughput">network throughput</option>
+                <option value="network_packet">network packet</option>
+                <option value="cpu_usage">cpu usage</option>
+                <option value="errors">errors</option>
+              </select>
+            </div>
+            {this.renderColorPicker()}
+          </form>
+          <button onClick={() => this.setState({updateGraph: !this.state.updateGraph})}
+            type="button" className="btn btn-warning">Pause Graph</button>
+          <div>Scroll down to post info to the server!</div>
         </div>
-        <form>
-          <div className="form-group">
-            <label htmlFor="titleInput">title: </label>
-            <input type="text" id="titleInput" className="form-control" id="formGroupExampleInput" value={this.state.title}
-              onChange={(event) => this.setState({title: event.target.value})}/>
-          </div>
-          <div className="form-group">
-            <label htmlFor="chartTypeSelector">Chart type</label>
-            <select value={this.state.chartType} onChange={this.changeChartType} className="custom-select" id="chartTypeSelector">
-              <option value="line">line</option>
-              <option value="bar">bar</option>
-            </select>
-          </div>
-          <div className="form-group">
-            <label htmlFor="yAxisSelector">y-axis</label>
-            <select value={this.state.y} onChange={this.changeGraph} className="custom-select" id="yAxisSelector">
-              <option value="memory_usage">memory usage</option>
-              <option value="memory_available">memory available</option>
-              <option value="network_throughput">network throughput</option>
-              <option value="network_packet">network packet</option>
-              <option value="cpu_usage">cpu usage</option>
-              <option value="errors">errors</option>
-            </select>
-          </div>
-          {this.renderColorPicker()}
-        </form>
-        <button onClick={() => this.setState({updateGraph: !this.state.updateGraph})} type="button" className="btn btn-outline-warning">Pause</button>
       </div>
     );
   }
