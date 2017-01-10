@@ -11,11 +11,11 @@ class Chart extends React.Component {
       chartType: "line",
       drawn: false,
       updateGraph: true,
-      y: "memory_usage",
+      y: "network_throughput",
       color: "blue",
       color2: "red",
       color3: "purple",
-      title: "memory usage VS time"
+      title: "network throughput"
     };
 
     // color to hash code
@@ -618,7 +618,9 @@ class Chart extends React.Component {
   render() {
     return (
       <div className="container">
-        <div className="svgAnchor"></div>
+        <div className="svgAnchor">
+          <div>{this.state.drawn ? "" : "LOADING . . ."}</div>
+        </div>
         <div className="editSection">
           <h1>Tools</h1>
           <div>Legend:
