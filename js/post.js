@@ -16,10 +16,38 @@ class Post extends React.Component {
     }
 
     this.onSubmit = this.onSubmit.bind(this);
+    this.onReqSuccess = this.onReqSuccess.bind(this);
+  }
+
+  onReqSuccess(data, textStatus, jqXHR) {
+    alert(textStatus);
   }
 
   onSubmit() {
-    alert('will post to server now');
+    $.ajax({
+          type: 'POST',
+          url: "/server_stat",
+          data: {
+              timestamp: (new Date()),
+              memory_usage: this.state.memUsage,
+              memory_available: this.state.memAvailable,
+              cpu_usage: this.state.cpuUsage,
+              network_throughput: {
+                  "in": this.state.netThroughIn,
+                  out: this.state.netThroughOut
+              },
+              network_packet: {
+                  "in": this.state.netPacketIn,
+                  out: this.state.netPacketOut
+              },
+              errors: {
+                  system: this.state.errSys,
+                  sensor: this.state.errSen,
+                  component: this.state.errComp
+              }
+          },
+          success: this.onReqSuccess
+      });
   }
 
   render() {
