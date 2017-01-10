@@ -1,6 +1,6 @@
 # Contrail: real-time data visualization with react.js & d3
 
-![alt text]()
+![alt text](https://raw.githubusercontent.com/ahsanazim/react-with-d3/master/assets/line-chart.gif)
 
 ## Accessing the site:
 
